@@ -1,0 +1,37 @@
+---
+# Configure Docker daemon
+
+- name: Create the docker service directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/docker.service.d/
+    state: directory
+    owner: root
+    group: root
+    mode: 0755
+  become: yes
+
+- name: Create the docker service override file
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/docker.service.d/override.conf
+    content: |
+      [Service]
+      ExecStart=
+      ExecStart=/usr/bin/dockerd --host=fd:// --host=tcp://0.0.0.0:2375 --tls=false --containerd=/run/containerd/containerd.sock {{ docker_daemon_extra_opts | default('') }}
+    mode: 0644
+    owner: root
+    group: root
+  become: yes
+  register: docker_service_overriden
+
+- name: Daemon reload and restart docker service
+  ansible.builtin.systemd_service:
+    name: docker
+    daemon_reload: true
+    state: restarted
+  when: docker_service_overriden.changed
+  become: yes
+
+- name: Pause for 2 minutes to allow for the docker service to restart
+  ansible.builtin.pause:
+    minutes: 2
+  when: docker_service_overriden.changed

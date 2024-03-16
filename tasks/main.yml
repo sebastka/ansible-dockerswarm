@@ -1,0 +1,18 @@
+---
+# tasks file for dockerswarm
+
+- name: Include system process
+  include_tasks: system.yml
+  tags: configure system
+
+- name: Include flusterfs process
+  include_tasks: glusterfs.yml
+  tags: configure glusterfs storage
+
+- name: Include docker process
+  include_tasks: docker.yml
+  tags: install docker daemon
+
+- name: Set up swarm
+  include_tasks: swarm.yml
+  tags: configure setup swarm ndoes

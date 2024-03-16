@@ -1,0 +1,5 @@
+---
+# Dependencies for the dockerswarm role
+
+dependencies:
+  - role: docker

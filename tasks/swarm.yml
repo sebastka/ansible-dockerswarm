@@ -1,0 +1,47 @@
+---
+# Set up swarm nodes
+
+- name: Get other node's local hostnames
+  ansible.builtin.set_fact:
+    other_nodes: "{{ groups[common_labels.cluster_name] | map('extract', hostvars, ['interfaces', 'private', 'hostname']) | difference([interfaces.private.hostname]) }}"
+  when: "groups[common_labels.cluster_name] | length > 1 and hostvars[groups[common_labels.cluster_name][0]].interfaces.private.hostname == interfaces.private.hostname"
+
+- name: Init swarm
+  community.docker.docker_swarm:
+    state: present
+    advertise_addr: "{{ interfaces.private.address }}"
+    listen_addr: "{{ interfaces.private.address }}:2377"
+  when: other_nodes is defined
+
+- name: Get swarm facts
+  community.docker.docker_swarm_info:
+  when: other_nodes is defined
+  register: swarm_facts
+
+- name: Save leader's hostname
+  set_fact:
+    swarm_leader: "{{ groups['swarm_managers'] | intersect(groups[common_labels.cluster_name]) | first }}"
+
+- name: Join swarm as manager
+  community.docker.docker_swarm:
+    state: join
+    advertise_addr: "{{ interfaces.private.address }}"
+    remote_addrs: "{{ hostvars[swarm_leader].interfaces.private.address }}:2377"
+    join_token: "{{ hostvars[swarm_leader].swarm_facts.swarm_facts.JoinTokens.Manager }}"
+  when: "'swarm_managers' in group_names and swarm_leader != interfaces.private.hostname"
+
+- name: Join swarm as worker
+  community.docker.docker_swarm:
+    state: join
+    advertise_addr: "{{ interfaces.private.address }}"
+    remote_addrs: "{{ hostvars[swarm_leader].interfaces.private.address }}:2377"
+    join_token: "{{ hostvars[swarm_leader].swarm_facts.swarm_facts.JoinTokens.Worker }}"
+  when: "'swarm_workers' in group_names"
+
+- name: Set common node labels
+  community.docker.docker_node:
+    hostname: "{{ item }}"
+    labels: "{{ common_labels | combine(hostvars[item].node_labels) }}"
+    labels_state: replace
+  when: hostvars[swarm_leader].interfaces.private.hostname == interfaces.private.hostname
+  loop: "{{ groups[common_labels.cluster_name] }}"

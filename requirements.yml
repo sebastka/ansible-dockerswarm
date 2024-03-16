@@ -1,0 +1,8 @@
+---
+# ansible-galaxy install -r requirements.yml
+
+roles:
+  - name: docker
+    src: git@github.com:sebastka/ansible-docker.git
+    version: master
+    scm: git

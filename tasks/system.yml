@@ -1,0 +1,19 @@
+---
+# Configure hosts before setting up swarm
+
+- name: Set sysctl values
+  ansible.posix.sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    sysctl_set: true
+    state: present
+    reload: true
+  with_items:
+    # https://github.com/nextcloud/all-in-one/discussions/1731
+    - { key: 'vm.overcommit_memory', value: 1 }
+    # nf_conntrack_max is the maximum number of tracked connections
+    - { key: 'net.netfilter.nf_conntrack_max', value: 524288 }
+    # https://github.com/quic-go/quic-go/wiki/UDP-Buffer-Sizes
+    - { key: 'net.core.rmem_max', value: 2500000 }
+    - { key: 'net.core.wmem_max', value: 2500000 }
+  become: yes

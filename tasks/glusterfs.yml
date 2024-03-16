@@ -1,0 +1,87 @@
+---
+# Install and set up GlusterFS replicated storage volume
+
+- name: Update APT cache
+  ansible.builtin.apt:
+    update_cache: yes
+  become: yes
+
+- name: Install dependencies
+  ansible.builtin.apt:
+    name:
+      - parted
+      - glusterfs-server
+    state: present
+  become: yes
+
+- name: Create a partition
+  community.general.parted:
+    device: "{{ gluster_disk }}"
+    number: 1
+    part_start: 0%
+    part_end: 100%
+    state: present
+  become: yes
+
+- name: Create an XFS filesystem
+  community.general.filesystem:
+    fstype: xfs
+    dev: "{{ gluster_disk }}1"
+  become: yes
+
+- name: Mount xfs partition
+  ansible.posix.mount:
+    path: /opt/glusterfs
+    src: "{{ gluster_disk }}1"
+    fstype: xfs
+    opts: defaults
+    state: mounted
+  become: yes
+
+- name: Start/Enable glusterd
+  ansible.builtin.service:
+    name: glusterd
+    state: started
+    enabled: yes
+  become: yes
+
+- name: Get other node's local hostnames
+  ansible.builtin.set_fact:
+    other_nodes: "{{ groups[common_labels.cluster_name] | map('extract', hostvars, ['interfaces', 'private', 'hostname']) | difference([interfaces.private.hostname]) }}"
+  when: "groups[common_labels.cluster_name] | length > 1 and hostvars[groups[common_labels.cluster_name][0]].interfaces.private.hostname == interfaces.private.hostname"
+
+- name: Set up gluster peers
+  gluster.gluster.gluster_peer:
+    state: present
+    nodes: "{{ other_nodes }}"
+  when: other_nodes is defined and other_nodes | length >= 1
+  become: yes
+
+- name: Create gluster volume
+  gluster.gluster.gluster_volume:
+    name: docker01
+    bricks: /opt/glusterfs/docker01
+    cluster: "{{ [interfaces.private.hostname] + other_nodes}}"
+    replicas: "{{ other_nodes | length | int + 1 }}"
+    state: present
+  when: other_nodes is defined
+  become: yes
+
+- name: Start gluster volume
+  gluster.gluster.gluster_volume:
+    name: docker01
+    bricks: /opt/glusterfs/docker01
+    cluster: "{{ [interfaces.private.hostname] + other_nodes}}"
+    replicas: "{{ other_nodes | length | int + 1 }}"
+    state: started
+  when: other_nodes is defined
+  become: yes
+
+- name: Mount gluster volume
+  ansible.posix.mount:
+    path: /opt/docker
+    src: localhost:/docker01
+    fstype: glusterfs
+    opts: defaults,_netdev,x-systemd.requires=glusterd.service,x-systemd.automount
+    state: mounted
+  become: yes
