@@ -9,8 +9,8 @@
 - name: Init swarm
   community.docker.docker_swarm:
     state: present
-    advertise_addr: "{{ interfaces.private.address }}"
-    listen_addr: "{{ interfaces.private.address }}:2377"
+    advertise_addr: "{{ hostvars[inventory_hostname]['ansible_' + interfaces.private.name]['ipv4']['address'] }}"
+    listen_addr: "{{ hostvars[inventory_hostname]['ansible_' + interfaces.private.name]['ipv4']['address'] }}:2377"
   when: other_nodes is defined
 
 - name: Get swarm facts
@@ -25,16 +25,16 @@
 - name: Join swarm as manager
   community.docker.docker_swarm:
     state: join
-    advertise_addr: "{{ interfaces.private.address }}"
-    remote_addrs: "{{ hostvars[swarm_leader].interfaces.private.address }}:2377"
+    advertise_addr: "{{ hostvars[inventory_hostname]['ansible_' + interfaces.private.name]['ipv4']['address'] }}"
+    remote_addrs: "{{ hostvars[swarm_leader]['ansible_' + interfaces.private.name]['ipv4']['address'] }}:2377"
     join_token: "{{ hostvars[swarm_leader].swarm_facts.swarm_facts.JoinTokens.Manager }}"
   when: "'swarm_managers' in group_names and swarm_leader != interfaces.private.hostname"
 
 - name: Join swarm as worker
   community.docker.docker_swarm:
     state: join
-    advertise_addr: "{{ interfaces.private.address }}"
-    remote_addrs: "{{ hostvars[swarm_leader].interfaces.private.address }}:2377"
+    advertise_addr: "{{ hostvars[inventory_hostname]['ansible_' + interfaces.private.name]['ipv4']['address'] }}"
+    remote_addrs: "{{ hostvars[swarm_leader]['ansible_' + interfaces.private.name]['ipv4']['address'] }}:2377"
     join_token: "{{ hostvars[swarm_leader].swarm_facts.swarm_facts.JoinTokens.Worker }}"
   when: "'swarm_workers' in group_names"
 
