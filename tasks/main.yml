@@ -5,12 +5,12 @@
   include_tasks: system.yml
   tags: configure system
 
-- name: Include flusterfs process
+- name: Include glusterfs process
   include_tasks: glusterfs.yml
   tags: configure glusterfs storage
 
 - name: Include docker process
-  include_tasks: docker.yml
+  include_tasks: dockerdaemon.yml
   tags: install docker daemon
 
 - name: Set up swarm
